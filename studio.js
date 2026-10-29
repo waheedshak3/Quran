@@ -15,7 +15,7 @@
   fillAyah(1);
   $('studioSurah').addEventListener('change',e=>fillAyah(Number(e.target.value)));
   function rootUrl(){return new URL('./',location.href);}
-  function deepLink(s,v){const url=rootUrl();url.searchParams.set('s',s);url.searchParams.set('v',v);return url.href;}
+  function deepLink(s,v){const url=rootUrl();url.searchParams.set('s',s);url.searchParams.set('v',v);url.searchParams.set('play','1');return url.href;}
   function qrImage(s,v){
     const img=new Image();img.alt=`Scan to open Surah ${s}, ayah ${v}`;
     img.loading='eager';img.width=150;img.height=150;

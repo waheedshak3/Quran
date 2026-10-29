@@ -20,6 +20,18 @@
   let toastTimer;
   const audio = $('audio');
   const urlParams = new URLSearchParams(location.search);
+  // All existing scan links (?s=...&v=...) qualify; newly printed QR links
+  // may also use ?play=1. No autoplay on an ordinary homepage visit.
+  const isQrArrival = (urlParams.has('s') && urlParams.has('v')) || urlParams.get('play') === '1';
+  let unlockPrompt = null;
+  const unlockCss = document.createElement('style');
+  unlockCss.textContent = `
+    .qc-audio-unlock { position:fixed; z-index:65; left:50%; bottom:calc(120px + env(safe-area-inset-bottom, 0px)); transform:translateX(-50%); width:min(510px, calc(100vw - 30px)); display:flex; align-items:center; gap:15px; justify-content:space-between; background:#fffdf7; border:1px solid #dfc998; border-radius:13px; padding:14px 15px; box-shadow:0 8px 35px rgba(19,47,35,.24); color:#284938; font-size:12px; font-family:system-ui,sans-serif; line-height:1.4; }
+    .qc-audio-unlock-btn { flex:none; border:0; border-radius:7px; background:#174a3a; padding:12px 13px; color:white; font-size:12px; font-weight:700; cursor:pointer; }
+    .qc-audio-unlock-btn:focus-visible { outline:3px solid #bf9c58; outline-offset:2px; }
+    @media(max-width:760px) { .qc-audio-unlock { bottom:calc(135px + env(safe-area-inset-bottom, 0px)); flex-direction:column; text-align:center; gap:9px; } .qc-audio-unlock-btn { width:100%; min-height:44px; } }
+  `;
+  document.head.append(unlockCss);
 
   function storedJSON(key, fallback) {
     try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
@@ -229,23 +241,68 @@
     updatePlaybackUI();
     $('seekBar').value='0';$('timeCurrent').textContent='0:00';$('timeTotal').textContent='0:00';
   }
-  function playCurrent() {
+  function dismissUnlockPrompt() {
+    if (unlockPrompt) {
+      unlockPrompt.remove();
+      unlockPrompt = null;
+    }
+  }
+
+  function showUnlockPrompt() {
+    if (unlockPrompt) return;
+    const prompt = document.createElement('div');
+    prompt.className = 'qc-audio-unlock';
+    prompt.setAttribute('role', 'status');
+    prompt.setAttribute('aria-live', 'polite');
+    const info = document.createElement('span');
+    info.textContent = 'Your browser stopped automatic audio. Tap once to listen.';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'qc-audio-unlock-btn';
+    button.textContent = '▶  Start recitation';
+    button.addEventListener('click', () => {
+      dismissUnlockPrompt();
+      // This runs directly inside the user's tap, so mobile browsers may play audio.
+      playCurrent();
+    });
+    prompt.append(info, button);
+    document.body.append(prompt);
+    unlockPrompt = prompt;
+  }
+
+  function playCurrent(fromAutoStart = false) {
     if (!audio.src || !audio.src.includes(`${pad(state.s)}-${pad(state.v)}-AR.mp3`)) prepareAudio();
-    const result=audio.play();
-    if(result && typeof result.catch==='function') result.catch(()=>{playing=false;updatePlaybackUI();toast('Audio could not start. Try again or open the verse on Alislam.');});
+    const requestedSrc = audio.src;
+    const result = audio.play();
+    if (result && typeof result.then === 'function') {
+      result.then(() => dismissUnlockPrompt()).catch(error => {
+        // An old play request may reject if the user has already changed the ayah.
+        if (audio.src !== requestedSrc) return;
+        playing = false;
+        updatePlaybackUI();
+        if (fromAutoStart && error && error.name === 'NotAllowedError') {
+          showUnlockPrompt();
+        } else if (fromAutoStart && error && error.name === 'AbortError') {
+          // Switching tracks can abort an in-flight play. No intrusive alert.
+        } else {
+          toast('Audio could not start. Tap the verse again or open it on Alislam.');
+        }
+      });
+    }
   }
   function selectVerse(v, opts={}) {
     const next=validVerse(state.s,v);
     const changed=next!==state.v;
     state.v=next;
     updateNavigation();
-    if(changed) prepareAudio();
+    if(changed) { dismissUnlockPrompt(); prepareAudio(); }
     if(opts.scroll) activeHighlight(true);
     if(opts.play) playCurrent();
   }
   function go(s,v,opts={}) {
     s=validSurah(s);v=validVerse(s,v);
     const chapterChanged=s!==state.s;
+    dismissUnlockPrompt();
     state.s=s;state.v=v;
     setHeader();updateNavigation();prepareAudio();
     if(chapterChanged) {
@@ -269,7 +326,7 @@
     $('player').classList.toggle('is-playing',playing);
   }
   function formatTime(sec) {return Number.isFinite(sec)?`${Math.floor(sec/60)}:${String(Math.floor(sec%60)).padStart(2,'0')}`:'0:00';}
-  audio.addEventListener('play',updatePlaybackUI);
+  audio.addEventListener('play',()=>{dismissUnlockPrompt();updatePlaybackUI();});
   audio.addEventListener('pause',updatePlaybackUI);
   audio.addEventListener('ended',()=> {updatePlaybackUI();if(repeat){audio.currentTime=0;playCurrent();}else next(1,true);});
   audio.addEventListener('timeupdate',()=> {const dur=audio.duration; $('timeCurrent').textContent=formatTime(audio.currentTime);if(Number.isFinite(dur)&&dur>0)$('seekBar').value=String(100*audio.currentTime/dur);});
@@ -291,7 +348,9 @@
 
   // The printed page number is intentionally user-supplied: no guessed mushaf mapping.
   function updateQr() {
-    const s=validSurah($('qrSurah').value),v=validVerse(s,$('qrVerse').value),link=deepLink(s,v);
+    const s=validSurah($('qrSurah').value),v=validVerse(s,$('qrVerse').value);
+    const url = new URL(deepLink(s,v)); url.searchParams.set('play','1');
+    const link = url.href;
     $('qrUrl').value=link;$('qrCaption').textContent=`${surahs[s-1].name} · Ayah ${v}`;
     const container=$('qrImage');clear(container);
     if(location.protocol==='file:') {const span=document.createElement('span');span.className='qr-placeholder';span.title='Publish to GitHub Pages before printing QR codes';span.textContent='▦';container.append(span);return;}
@@ -339,4 +398,9 @@
   document.title=`Quran Companion · ${surahs[state.s-1].name}`;
   setHeader();updateNavigation();prepareAudio();renderCurrentChapter(state.v>1);
   if(state.s!==1 && showTranslation)fetchSherAli();
+  if(isQrArrival) {
+    // Try immediately on a QR-linked visit. Some browsers require a user gesture;
+    // in that case show a single-tap fallback instead of claiming audio started.
+    playCurrent(true);
+  }
 })();

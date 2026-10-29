@@ -17,7 +17,7 @@ A clean, mobile-first **GitHub Pages** website for Ahmadiyya readers of the Holy
 1. Download and unzip the **Quran Companion website** ZIP.
 2. Sign in at [github.com](https://github.com) and choose **New repository**.
 3. Give it a name such as `Quran-Companion` and make it **Public**.
-4. Select **Add file → Upload files**. **Open the unzipped folder, select all of the files and the `assets` and `data` folders, and upload them into the repository root.** The file `index.html` must be at the top level, not inside another folder.
+4. Select **Add file → Upload files**. **Open the unzipped folder, select all eight website files, and upload them into the repository root.** The file `index.html` must be at the top level, not inside another folder.
 5. Choose **Commit changes**.
 6. Open repository **Settings → Pages**. Under *Build and deployment*, select **Deploy from a branch**, then choose **main** and **/(root)**, and press **Save**.
 7. Visit `https://YOUR-USERNAME.github.io/Quran-Companion/` (replace username and repository name with yours). GitHub will display the actual site URL in Settings → Pages once it is published.
@@ -75,12 +75,20 @@ Here `002` is a Surah and `001` is its **Alislam ayah number**. These MP3s are *
 ```
 index.html           Main Quran reader
 qr-studio.html       Printed-page QR mapping & A4 label printing
-assets/style.css     Responsive styling + print layout
-assets/app.js        Reader, audio, navigation, QR controls
-assets/studio.js     CSV and label manager
-data/surahs.js       114 Surahs, counts, Al-Fatihah
-assets/icon.svg      Site icon
+style.css     Responsive styling + print layout
+app.js        Reader, audio, navigation, QR controls
+studio.js     CSV and label manager
+surahs.js       114 Surahs, counts, Al-Fatihah
+icon.svg      Site icon
 README.md            These instructions
 ```
 
 No Node, Python, API key, package manager or build step is needed for GitHub Pages.
+
+## Audio after scanning a QR (updated)
+
+QR links to `?s=CHAPTER&v=VERSE` now **attempt to play the selected Feroz Alam recording immediately** when the page opens. Newly generated QR links also contain `play=1`. Existing printed links with just `s` and `v` continue to work. The audio player then moves to the next verse automatically.
+
+**Browser limitation:** Modern mobile browsers commonly block *audible* autoplay until a user has tapped the website or otherwise granted permission. Scanning a QR code is not always recognised as a website user gesture. The website cannot override that security setting. If autoplay is blocked, a large one-tap “Start recitation” prompt appears above the player, and selecting a verse also starts its audio. This is the closest reliable experience possible on a standard GitHub Pages website.
+
+For this repository (`waheedshak3/Quran`), every file belongs at the repository ROOT. In particular, `index.html` references `style.css`, `app.js` and `surahs.js`, not subfolders.
