@@ -113,6 +113,37 @@
   }
   $('surahSearch').addEventListener('input', e => chapterList(e.target.value));
 
+  // Some Hafs/Uthmani data sources include an *unnumbered* opening Bismillah
+  // inside the Arabic text of the first standard ayah (e.g. 2:1 contains
+  // "Bismillah ... Alif Lam Mim"). We number Bismillah separately in the
+  // Ahmadiyya convention, so remove that embedded opening before prepending it.
+  // Ignore Quranic vowel marks and alternate alif glyphs while matching, but
+  // preserve the source spelling and marks of the actual ayah that follows.
+  function stripEmbeddedOpeningBismillah(text) {
+    const target = 'بسماللهالرحمنالرحيم';
+    let letters = '';
+    const originalEnds = [];
+    for (let i = 0; i < text.length && letters.length < target.length; ) {
+      const char = String.fromCodePoint(text.codePointAt(i));
+      i += char.length;
+      const simplified = char.normalize('NFKD')
+        .replace(/\p{M}/gu, '')
+        .replace(/[ٱأإآ]/gu, 'ا');
+      for (const letter of simplified) {
+        if (!/[ء-ي]/u.test(letter)) continue;
+        letters += letter;
+        originalEnds.push(i);
+        if (!target.startsWith(letters)) return text;
+        if (letters.length === target.length) break;
+      }
+    }
+    if (letters !== target) return text; // Source has no embedded Bismillah.
+    const remaining = text.slice(originalEnds[target.length - 1])
+      .replace(/^[\s\p{M}\u06DD\u06DE]+/gu, '').trim();
+    if (!remaining) throw new Error('Arabic source has a standalone Bismillah in its first numbered verse');
+    return remaining;
+  }
+
   async function arabicChapter(s) {
     if (contentCache.has(s)) return contentCache.get(s);
     if (pendingCache.has(s)) return pendingCache.get(s);
@@ -125,6 +156,7 @@
       if (!json || !Array.isArray(json.verses)) throw new Error('Arabic verses not found');
       const base = json.verses.map(x => ({arabic: typeof x.text === 'string' ? x.text : ''}));
       if (base.length !== surahs[s - 1].standard || base.some(v => !v.arabic)) throw new Error('Unexpected verse count or text');
+      if (s !== 9) base[0].arabic = stripEmbeddedOpeningBismillah(base[0].arabic);
       const result = s === 9 ? base : [{arabic: BISMILLAH.arabic, en: BISMILLAH.en}, ...base];
       contentCache.set(s, result);
       return result;
