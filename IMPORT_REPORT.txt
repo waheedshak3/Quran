@@ -1,0 +1,32 @@
+Arabic-only import report — 30 October 2026
+
+User-supplied source: Pasted text(2).txt
+Coverage: Surah Al-Fatihah (7 verses) and Surah Al-Baqarah (287 Al Islam-counted verses).
+No other Surahs are present in this file.
+
+This patch DOES NOT replace Surah Al-Fatihah: the original app already includes
+its Al Islam Arabic text. The data source used to check those 7 verses was the
+original surahs.js file.
+
+Surah Al-Baqarah:
+  168 verses covered by the patch, out of 287 (2:1 remains in original app)
+  164 verses automatically isolated from unequivocal end-number markers,
+  including 2:1 and the final verse 2:287.
+  11 verses copied from individual Al Islam online verse pages.
+  118 other verses still use the existing website's original Arabic text source.
+  129 covered verses contain private-use pause symbols copied from the supplied text;
+  these may not display unless the existing font supports them.
+
+IMPORTANT: The pasted PDF-style text is not identical character-by-character to
+Al Islam's HTML/app text, and the mapping is INCOMPLETE. Do not publish or describe
+this patch as a fully verified Al Islam Quran transcription.
+
+Unmapped verse numbers in Al-Baqarah:
+8, 9, 10, 11, 19, 20, 21, 22, 23, 27, 28, 30, 31, 40, 41, 46, 47, 48, 60, 61, 62, 63, 66, 67, 72, 73, 74, 83, 84, 87, 88, 97, 98, 102, 103, 104, 105, 113, 114, 122, 123, 130, 131, 133, 134, 138, 139, 140, 141, 142, 143, 146, 147, 148, 149, 151, 152, 153, 154, 156, 157, 158, 160, 161, 162, 163, 164, 165, 168, 169, 177, 178, 181, 182, 183, 184, 185, 189, 190, 197, 198, 211, 212, 217, 218, 220, 221, 222, 223, 229, 230, 232, 233, 236, 237, 243, 244, 249, 250, 251, 252, 254, 255, 258, 259, 260, 261, 262, 267, 268, 269, 270, 274, 275, 282, 283, 284, 285
+
+All other original source files must stay unchanged. This patch updates only:
+  index.html (adds one script tag)
+  arabic-pasted-patch.js (Arabic text replacements only)
+
+Official source checks: https://www.alislam.org/quran/app/2:6
+                        https://www.alislam.org/quran/app/2:17
