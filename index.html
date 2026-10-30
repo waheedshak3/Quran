@@ -21,7 +21,7 @@ const API='https://api.alquran.cloud/v1';
 const BASMALA='بِسْمِ اللّٰهِ الرَّحْمَٰنِ الرَّحِيْمِ';
 const chapter=document.getElementById('chapter'),ayah=document.getElementById('ayah');
 const verses=document.getElementById('verses'),surahTitle=document.getElementById('surahTitle'),subtitle=document.getElementById('subtitle'),sourceNote=document.getElementById('sourceNote');
-let local=null,metadata=[],current=[],source='',requestId=0;
+let local=null,verified={},metadata=[],current=[],source='',requestId=0;
 const englishNames=['Al-Fatihah','Al-Baqarah','Aal-e-Imran','An-Nisa','Al-Maidah','Al-Anam','Al-Araf','Al-Anfal','At-Taubah','Yunus','Hud','Yusuf','Ar-Rad','Ibrahim','Al-Hijr','An-Nahl','Bani Israil','Al-Kahf','Maryam','TaHa','Al-Anbiya','Al-Hajj','Al-Muminun','An-Nur','Al-Furqan','Ash-Shuara','An-Naml','Al-Qasas','Al-Ankabut','Ar-Rum','Luqman','As-Sajdah','Al-Ahzab','Saba','Fatir','Ya Sin','As-Saffat','Sad','Az-Zumar','Al-Mumin','Ha Mim As-Sajdah','Ash-Shura','Az-Zukhruf','Ad-Dukhan','Al-Jathiyah','Al-Ahqaf','Muhammad','Al-Fath','Al-Hujurat','Qaf','Adh-Dhariyat','At-Tur','An-Najm','Al-Qamar','Ar-Rahman','Al-Waqiah','Al-Hadid','Al-Mujadalah','Al-Hashr','Al-Mumtahinah','As-Saff','Al-Jumuah','Al-Munafiqun','At-Taghabun','At-Talaq','At-Tahrim','Al-Mulk','Al-Qalam','Al-Haqqah','Al-Maarij','Nuh','Al-Jinn','Al-Muzzammil','Al-Muddaththir','Al-Qiyamah','Ad-Dahr','Al-Mursalat','An-Naba','An-Naziat','Abasa','At-Takwir','Al-Infitar','At-Tatfif','Al-Inshiqaq','Al-Buruj','At-Tariq','Al-Ala','Al-Ghashiyah','Al-Fajr','Al-Balad','Ash-Shams','Al-Lail','Ad-Duha','Al-Inshirah','At-Tin','Al-Alaq','Al-Qadr','Al-Bayyinah','Az-Zilzal','Al-Adiyat','Al-Qariah','At-Takathur','Al-Asr','Al-Humazah','Al-Fil','Quraish','Al-Maun','Al-Kauthar','Al-Kafirun','An-Nasr','Al-Lahab','Al-Ikhlas','Al-Falaq','An-Nas'];
 function parseLocation(){let m=location.hash.match(/^#(?:surah-)?(\d+)(?::|\/)(\d+)$/);if(m)return [+m[1],+m[2]];m=location.hash.match(/^#(?:surah-)?(\d+)$/);if(m)return [+m[1],1];let p=new URLSearchParams(location.search);return [Number(p.get('surah'))||1,Number(p.get('ayah'))||1]}
 function validData(x){return x && Array.isArray(x.surahs) && x.surahs.length===114 && x.surahs.every((s,i)=>Number(s.number)===i+1 && Array.isArray(s.ayahs) && s.ayahs.length>0 && s.ayahs.every((v,j)=>Number(v.number)===j+1 && typeof v.text==='string' && v.text.trim()))}
@@ -36,22 +36,23 @@ try{
  // The source API does not. For Al-Fatihah it already has the Bismillah as verse 1.
  if(n!==1&&n!==9){if(looksLikeBasmala(data[0]?.text||'')){current=data;}else current=[{number:1,text:BASMALA},...data.map(v=>({number:v.number+1,text:v.text}))];}
  else current=data;source='AlQuran Cloud (temporary fallback; NOT Al Islam transcription)';}
+ if(!local){current=current.map(v=>{const verifiedText=verified[`${n}:${v.number}`];return verifiedText?{...v,text:verifiedText,verified:true}:v;});}
  if(id!==requestId)return;
  let name=local?s.name||englishNames[n-1]:englishNames[n-1];surahTitle.textContent=`${n}. ${name}`;
  subtitle.textContent=`${current.length} verses · Al Islam-style numbering`;
- sourceNote.textContent=local?'Arabic text loaded from your local alislam-quran.json file. Verify that it is the authorised Al Islam edition.':'IMPORTANT: Al Islam’s full Arabic dataset was not available to verify. This site currently uses AlQuran Cloud Arabic with adjusted Al Islam-style verse numbering. It is NOT an exact Al Islam transcription.';
+ sourceNote.textContent=local?'Arabic text supplied through alislam-quran.json; verify its provenance.':`Verified Al Islam verses in this Surah: ${current.filter(v=>v.verified).length}/${current.length}. Remaining verses use a DIFFERENT Arabic edition until the official dataset is supplied. Al Islam-style numbering is applied.`;
  verses.replaceChildren(...current.map(v=>{
   const outer=document.createElement('article');outer.className='verse';outer.id=`v-${v.number}`;
   const a=document.createElement('div');a.className='arabic';a.lang='ar';a.dir='rtl';a.textContent=v.text;
   const foot=document.createElement('div');foot.className='versefoot';
-  const num=document.createElement('span');num.textContent=`${n}:${v.number}`;
+  const num=document.createElement('span');num.textContent=`${n}:${v.number}${v.verified?' · Al Islam verified':''}`;
   const b=document.createElement('button');b.textContent='Copy link';b.addEventListener('click',()=>copyLink(n,v.number));foot.append(num,b);outer.append(a,foot);return outer;
  }));
  let target=parseLocation()[1];if(+chapter.value===n)jump(target,false);
 }catch(e){if(id===requestId){verses.innerHTML='';let d=document.createElement('div');d.className='msg';d.textContent='Could not load Arabic verses: '+e.message+'. Please check your connection or add alislam-quran.json.';verses.append(d)}}}
 function jump(v,update=true){v=Math.max(1,Math.min(current.length,Number(v)||1));ayah.value=v;if(update)history.replaceState(null,'',`#${chapter.value}:${v}`);document.querySelectorAll('.selected').forEach(x=>x.classList.remove('selected'));let el=document.getElementById(`v-${v}`);if(el){el.classList.add('selected');el.scrollIntoView({behavior:'smooth',block:'start'})}}
 async function copyLink(n,v){const u=new URL(location.href);u.search='';u.hash=`${n}:${v}`;try{await navigator.clipboard.writeText(u.href);alert('Verse link copied')}catch{prompt('Copy this verse link:',u.href)}}
-async function init(){try{let candidate=await getJson('./alislam-quran.json');if(validData(candidate))local=candidate;else console.warn('Local Al Islam file format invalid; using fallback.')}catch{}
+async function init(){try{verified=await getJson('./alislam-verified-verses.json')}catch{};try{let candidate=await getJson('./alislam-quran.json');if(validData(candidate))local=candidate;else console.warn('Local Al Islam file format invalid; using fallback.')}catch{}
  chapter.replaceChildren(...englishNames.map((name,i)=>{let opt=document.createElement('option');opt.value=i+1;opt.textContent=`${i+1}. ${local?.surahs?.[i]?.name||name}`;return opt}));
  let [n,v]=parseLocation();n=n>=1&&n<=114?n:1;chapter.value=n;ayah.value=v;
  chapter.addEventListener('change',()=>{history.replaceState(null,'',`#${chapter.value}:1`);ayah.value=1;loadSurah(+chapter.value)});
